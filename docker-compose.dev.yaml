@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+   callback-server:
+      volumes:
+         - ./callback_server/:/app
+
+   batch_transcriber:
+      volumes:
+         - ./sm_batch_transcriber/:/app
+      deploy:
+         replicas: 1
+
+   rabbitmq_client:
+      volumes:
+         - ./rabbitmq_client:/app
+      deploy:
+         replicas: 1

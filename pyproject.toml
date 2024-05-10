@@ -1,0 +1,12 @@
+[tool.pylint.messages_control]
+disable = """
+    fixme,
+    consider-using-f-string,
+    duplicate-code,
+    invalid-name
+"""
+max-line-length = 120
+
+
+[tool.black]
+line-length = 120

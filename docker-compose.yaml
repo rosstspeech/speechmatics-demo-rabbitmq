@@ -1,0 +1,79 @@
+version: "3.9"
+services:
+   rabbitmq:
+      image: rabbitmq:3-management
+      container_name: 'my-rabbit'
+      hostname: ${RABBIT_URI:-my-rabbit}
+      ports:
+         - 5672:5672
+         - 15672:15672
+      environment:
+         # rabbitmq is noisy.
+         - RABBITMQ_LOG='connection,error,warning'
+      volumes:
+         - rabbitmq_server:/var/lib/rabbitmq
+
+   sm-usage:
+      image: speechmatics-docker-public.jfrog.io/asr-usage:${USAGE_VERSION:-0.2.0}
+      hostname: 'sm-usage'
+      environment:
+         - EATS_PORT=9090
+      ports:
+         - 8000:8000
+      volumes:
+         - sm_usage:/data
+
+   callback-server:
+      build: ./callback_server/
+      container_name: 'callback-server'
+      hostname: 'callback-server'
+      ports:
+         - 8080:8080
+
+   batch_transcriber:
+      build:
+         context: ${PWD}
+         dockerfile: ./sm_batch_transcriber/Dockerfile
+         args:
+            TRANSCRIBER_VERSION: ${TRANSCRIBER_VERSION:-10.5.0}
+            BUILD_DIR: "sm_batch_transcriber"
+      image: transcriber:${TRANSCRIBER_VERSION:-10.5.0}
+      depends_on:
+         - sm-usage
+         - rabbitmq
+         - callback-server
+      environment:
+         - SM_EATS_URL=sm-usage:9090
+         - LICENSE_TOKEN=${LICENSE_TOKEN:?required}
+         - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?required}
+         - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?required}
+         - S3_BUCKET_NAME=${S3_BUCKET_NAME:?required}
+         - RABBIT_URI=${RABBIT_URI}
+         - RABBIT_QUEUE_NAME=${RABBIT_QUEUE_NAME}
+         - CALLBACK_SERVER=${CALLBACK_SERVER}
+      deploy:
+         replicas: 0
+
+   rabbitmq_client:
+      build:
+         context: ${PWD}
+         dockerfile: ./rabbitmq_client/Dockerfile
+         args:
+            BUILD_DIR: "rabbitmq_client"
+      image: rabbitmq_client:1.0
+      restart: "no"
+      depends_on:
+         - rabbitmq
+      environment:
+         - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?required}
+         - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?required}
+         - S3_BUCKET_NAME=${S3_BUCKET_NAME:?required}
+         - S3_FILE_PREFIX=${S3_FILE_PREFIX}
+         - RABBIT_URI=${RABBIT_URI}
+         - RABBIT_QUEUE_NAME=${RABBIT_QUEUE_NAME}
+      deploy:
+         replicas: 0
+
+volumes:
+   rabbitmq_server:
+   sm_usage:
